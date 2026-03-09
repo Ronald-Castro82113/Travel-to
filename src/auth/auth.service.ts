@@ -18,14 +18,21 @@ export class AuthService {
         }
 
         //Verificar si ya existe
-        const existingUser = await this.prisma.user.findFirst({
+        const conditions: any[] = [];
+
+        if (data.email) {
+            conditions.push({ email: data.email });
+        }
+
+        if (data.cedula) {
+            conditions.push({ cedula: data.cedula });
+        }
+
+        const existingUser = await this.prisma.user.findFirst({ 
             where: {
-                OR: [
-                    {email: data.email},
-                    {cedula: data.cedula}
-                ],
+                OR: conditions,
             },
-        });
+         });
 
         if (existingUser) {
             throw new BadRequestException('El usuario ya existe');
