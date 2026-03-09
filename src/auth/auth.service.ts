@@ -1,12 +1,18 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as bcrypt from 'bcrypt'
+import { JwtService } from '@nestjs/jwt';
+import { Role } from '@prisma/client';
+import { access } from 'fs';
 
 @Injectable()
 export class AuthService {
-    constructor(private prisma: PrismaService){}
+    constructor(
+        private prisma: PrismaService,
+        private jwtService: JwtService,
+    ){}
 
-    async register(data: {
+    async register(data: {      
         email?: string;
         cedula?: string;
         password: string;
@@ -53,5 +59,37 @@ export class AuthService {
             userId: user.id,
         };
 
+    }
+
+    async login(data: {email?: string; cedula?: string; password: string }) {
+        const user = await this.prisma.user.findFirst({
+            where: {
+                OR: [
+                    data.email ? { email: data.email } : undefined,
+                    data.cedula ? { cedula: data.cedula } : undefined,
+                ].filter(Boolean) as any,
+            },
+        });
+
+        if (!user) {
+            throw new BadRequestException('Usuario no encontrado');
+        }
+
+        const passwordValid = await bcrypt.compare(data.password, user.password);
+
+        if (!passwordValid) {
+            throw new BadRequestException('Contraseña incorrecta');
+        }
+
+        const payload = {
+            userId: user.id,
+            role: user.role,
+        };
+
+        const token = this.jwtService.sign(payload);
+
+        return {
+            access_token : token,
+        };
     }
 }
